@@ -1,0 +1,8 @@
+{
+    "newArticle": {
+        "title": "New Article",
+        "about": "about this article",
+        "content": "random content",
+        "tags": "random tag"
+    }
+}
