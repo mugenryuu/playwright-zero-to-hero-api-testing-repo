@@ -38,12 +38,33 @@ test('Verify if API intercept worked', async ({ page }) => {
   await expect(page.locator('.preview-link p').first()).toHaveText('This is a MOCK new description');
 });
 
-test('Verify if new article is created and deleted', async ({ page, request }) => {
-
+test('Create article using API', async({page}) => {
   const response = await page.waitForResponse('*/**/api/users/login')
   const responseBody = await response.json();
   const token = responseBody.user.token
+})
+
+test('Verify if new article is created and deleted', async ({ page, request }) => {
+  const loginResponse = await page.waitForResponse('*/**/api/users/login')
+  const loginResponseBody = await loginResponse.json();
+  const token = loginResponseBody.user.token
 
   await page.getByRole('link', {name: 'New Article'}).click();
-  await 
+  await page.getByPlaceholder('Article Title').fill(article.newArticle.title);
+  await page.getByPlaceholder(`What's this article about?`).fill(article.newArticle.about);
+  await page.getByPlaceholder(`Write your article (in markdown)`).fill(article.newArticle.content);
+  await page.getByPlaceholder(`Enter tags`).fill(article.newArticle.tags)
+  await page.getByRole('button', {name: 'Publish Article'}).click();
+
+  const articleResponse = await page.waitForResponse('*/**/api/articles/');
+  const articleResponseBody = await articleResponse.json();
+  const slugId = articleResponseBody.article.slug
+
+  const deleteArticleResponse = await request.delete(`*/**/api/articles/${slugId}`, {
+    headers: {
+      Authorization: `Token ${token}`
+    }
+  })
+
+  expect(deleteArticleResponse.status()).toEqual(204)
 });
