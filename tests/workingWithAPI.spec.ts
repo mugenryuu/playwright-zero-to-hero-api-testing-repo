@@ -1,23 +1,16 @@
-import { test, expect, request } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import tags from '../test-data/tags.json'
-import users from '../test-data/users.json'
 import article from '../test-data/article.json'
+import authFile from '../.auth/user.json'
 
 test.beforeEach(async ({ page }) => {
-  const notSignedIn = page.getByRole('link', { name: 'Sign In' })
+
   await page.route('*/**/api/tags', async route => {
     await route.fulfill({
       body: JSON.stringify(tags)
     })
   })
-
-  await page.goto('/');
-  if (notSignedIn) {
-    await page.getByRole('link', { name: 'Sign In' }).click();
-    await page.getByPlaceholder('Email').fill(users.user1.email);
-    await page.getByPlaceholder('Password').fill(users.user1.password);
-    await page.getByRole('button', { name: 'Sign In' }).click();
-  }
+  page.goto('/')
 })
 
 
@@ -38,10 +31,20 @@ test('Verify if API intercept worked', async ({ page }) => {
   await expect(page.locator('.preview-link p').first()).toHaveText('This is a MOCK new description');
 });
 
-test('Create article using API', async({page}) => {
-  const response = await page.waitForResponse('*/**/api/users/login')
-  const responseBody = await response.json();
-  const token = responseBody.user.token
+test('Create article using API', async ({ request }) => {
+  const token = authFile.origins[0].localStorage[0].value;
+
+  await request.post('*/**/api/articles/', {
+    data: {
+      "title": "this is a title",
+      "description": "sample desc",
+      "body": "this is the body",
+      "tagList": ['automation']
+    },
+    headers: {
+      Authorization: `Token ${token}`
+    }
+  })
 })
 
 test('Verify if new article is created and deleted', async ({ page, request }) => {
@@ -49,12 +52,12 @@ test('Verify if new article is created and deleted', async ({ page, request }) =
   const loginResponseBody = await loginResponse.json();
   const token = loginResponseBody.user.token
 
-  await page.getByRole('link', {name: 'New Article'}).click();
+  await page.getByRole('link', { name: 'New Article' }).click();
   await page.getByPlaceholder('Article Title').fill(article.newArticle.title);
   await page.getByPlaceholder(`What's this article about?`).fill(article.newArticle.about);
   await page.getByPlaceholder(`Write your article (in markdown)`).fill(article.newArticle.content);
   await page.getByPlaceholder(`Enter tags`).fill(article.newArticle.tags)
-  await page.getByRole('button', {name: 'Publish Article'}).click();
+  await page.getByRole('button', { name: 'Publish Article' }).click();
 
   const articleResponse = await page.waitForResponse('*/**/api/articles/');
   const articleResponseBody = await articleResponse.json();
