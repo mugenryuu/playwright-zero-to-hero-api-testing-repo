@@ -1,5 +1,6 @@
 import { Page, expect, APIRequestContext } from "@playwright/test";
 import authFile from '../.auth/user.json'
+import { NewArticle } from "../types/article.types";
 
 export class HomePage {
     readonly page;
@@ -27,6 +28,15 @@ export class HomePage {
         await expect(this.page.locator('.preview-link p').nth(articleIndex)).toHaveText(description);
     }
 
+    async createArticleUsingUI(article: NewArticle) {
+        await this.page.getByRole('link', { name: 'New Article' }).click();
+        await this.page.getByPlaceholder('Article Title').fill(article.title);
+        await this.page.getByPlaceholder(`What's this article about?`).fill(article.about);
+        await this.page.getByPlaceholder(`Write your article (in markdown)`).fill(article.content);
+        await this.page.getByPlaceholder(`Enter tags`).fill(article.tags)
+        await this.page.getByRole('button', { name: 'Publish Article' }).click();
+    }
+
     async createArticleUsingAPI(request: APIRequestContext) {
         const token = authFile.origins[0].localStorage[0].value;
 
@@ -41,5 +51,37 @@ export class HomePage {
                 Authorization: `Token ${token}`
             }
         })
+    }
+
+    async deleteArticleUsingAPI(request: APIRequestContext) {
+        const token = authFile.origins[0].localStorage[0].value;
+        const articleResponse = await this.page.waitForResponse('*/**/api/articles/');
+        const articleResponseBody = await articleResponse.json();
+        const slugId = articleResponseBody.article.slug
+
+        const deleteArticleResponse = await request.delete(`*/**/api/articles/${slugId}`, {
+            headers: {
+                Authorization: `Token ${token}`
+            }
+        })
+
+        expect(deleteArticleResponse.status()).toEqual(204)
+    }
+
+    async createArticleAndDelete(request: APIRequestContext, article: NewArticle) {
+
+        const articleExists = this.page.getByText(article.title)
+
+        if (articleExists) {
+            console.log('Article already exists, deleting it first')
+            this.deleteArticleUsingAPI(request);
+        }
+
+        else {
+            console.log('Article does not exist, proceeding with test')
+            this.createArticleUsingUI(article);
+        }
+
+        this.deleteArticleUsingAPI(request)
     }
 }
